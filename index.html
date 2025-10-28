@@ -395,10 +395,15 @@
           ('Notification' in window) && Notification.permission === 'granted'
         );
         
-        // Load tasks from localStorage on initial render
+        // Load tasks from localStorage on initial render, with error handling
         const [tasks, setTasks] = useState(() => {
-          const savedTasks = localStorage.getItem(TASKS_STORAGE_KEY);
-          return savedTasks ? JSON.parse(savedTasks) : [];
+          try {
+            const savedTasks = localStorage.getItem(TASKS_STORAGE_KEY);
+            return savedTasks ? JSON.parse(savedTasks) : [];
+          } catch (e) {
+            console.error("Failed to load tasks from localStorage:", e);
+            return []; // Default to empty array if localStorage fails
+          }
         });
         const [newTaskText, setNewTaskText] = useState("");
         const [focusTaskId, setFocusTaskId] = useState(null);
@@ -418,9 +423,13 @@
           }
         }, []);
 
-        // Save tasks to localStorage whenever they change
+        // Save tasks to localStorage whenever they change, with error handling
         useEffect(() => {
-          localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(tasks));
+          try {
+            localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(tasks));
+          } catch (e) {
+            console.error("Failed to save tasks to localStorage:", e);
+          }
         }, [tasks]);
 
         // Calculate total duration for progress ring based on current mode
@@ -669,7 +678,8 @@
                 {/* Task Section */}
                 <div>
                   <h3 className="text-2xl font-bold text-white mb-4">Tasks</h3>
-                  <form onSubmit={handleAddTask} className="flex space-x-2 mb-4">
+                  {/* UPDATED: Form now stacks vertically on mobile */}
+                  <form onSubmit={handleAddTask} className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2 mb-4">
                     <input
                       type="text"
                       value={newTaskText}
@@ -679,7 +689,8 @@
                     />
                     <button
                       type="submit"
-                      className="px-5 py-2.5 font-semibold flex-shrink-0 flex items-center justify-center rounded-lg bg-session-primary hover:bg-session-secondary shadow-lg shadow-session-shadow transition-all duration-200 transform hover:scale-105 active:scale-95"
+                      /* UPDATED: Button is full-width on mobile, auto-width on desktop */
+                      className="w-full sm:w-auto px-5 py-3 sm:py-2.5 font-semibold flex-shrink-0 flex items-center justify-center rounded-lg bg-session-primary hover:bg-session-secondary shadow-lg shadow-session-shadow transition-all duration-200 transform hover:scale-105 active:scale-95"
                       aria-label="Add task"
                     >
                       Add Task
