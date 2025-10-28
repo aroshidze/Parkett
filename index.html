@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomodoro Timer Deluxe</title>
+    
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Load Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Configure Tailwind -->
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              inter: ['Inter', 'sans-serif'],
+            },
+          }
+        }
+      }
+    </script>
+    
+    <!-- Animated Gradient Styles -->
+    <style>
+      @keyframes gradient-flow {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+      .animated-gradient {
+        background: linear-gradient(-45deg, #1e3a8a, #3b0764, #064e3b, #3b82f6);
+        background-size: 400% 400%;
+        animation: gradient-flow 15s ease infinite;
+      }
+      /* Ensure the body and root take full height */
+      html, body, #root {
+        min-height: 100vh;
+      }
+    </style>
+</head>
+<body class="animated-gradient">
+    <!-- React app will mount here -->
+    <div id="root"></div>
+
+    <!-- Audio Element (moved to body) -->
+    <audio
+      id="beep"
+      src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg"
+      preload="auto"
+    ></audio>
+
+    <!-- Load React libraries -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <!-- Load Babel to transpile JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- React Component Code (transpiled by Babel) -->
+    <script type="text/babel">
+      const { useState, useEffect, useRef, useCallback } = React;
+
+      // SVG Icons for Controls
+      const MinusIcon = () => (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
+        </svg>
+      );
+
+      const PlusIcon = () => (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+      );
+
+      const PlayIcon = () => (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347c.75.413.75 1.559 0 1.972l-11.54 6.347c-.75.413-1.667-.13-1.667-.986V5.653Z" />
+        </svg>
+      );
+
+      const PauseIcon = () => (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
+        </svg>
+      );
+
+      const ResetIcon = () => (
+       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+        </svg>
+      );
+
+
+      // Button Component for consistent styling and animation
+      const ControlButton = ({ id, onClick, children, className = '', ...props }) => (
+        <button
+          id={id}
+          onClick={onClick}
+          className={`p-3 rounded-full text-white bg-white/20 hover:bg-white/30 active:bg-white/10 transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-teal-400 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+          {...props}
+        >
+          {children}
+        </button>
+      );
+
+      // Length Control Component
+      const LengthControl = ({ type, label, length, increment, decrement, isRunning }) => (
+        <div className="flex flex-col items-center space-y-3 p-4 bg-white/10 backdrop-blur-sm rounded-xl shadow-lg w-full sm:w-auto">
+          <h3 id={`${type}-label`} className="text-sm font-medium text-white/70 uppercase tracking-widest">
+            {label}
+          </h3>
+          <div className="flex items-center space-x-4">
+            <ControlButton id={`${type}-decrement`} onClick={decrement} disabled={isRunning} aria-label={`Decrease ${label}`}>
+              <MinusIcon />
+            </ControlButton>
+            <span id={`${type}-length`} className="text-4xl font-bold text-white w-12 text-center tabular-nums">
+              {length}
+            </span>
+            <ControlButton id={`${type}-increment`} onClick={increment} disabled={isRunning} aria-label={`Increase ${label}`}>
+              <PlusIcon />
+            </ControlButton>
+          </div>
+        </div>
+      );
+
+      // Timer Display Component with Progress Ring
+      const TimerDisplay = ({ label, timeLeft, formatTime, totalDuration, isSession }) => {
+        // Fix: Ensure percentage is 0 when timeLeft equals totalDuration, and 100 when timeLeft is 0.
+        const percentage = totalDuration > 0 ? ((totalDuration - timeLeft) / totalDuration) * 100 : 0;
+        const circumference = 2 * Math.PI * 140; // Assuming radius 140
+        // Fix: When percentage is 0 (start), offset should be full circumference.
+        const strokeDashoffset = circumference - (percentage / 100) * circumference;
+
+        const ringColor = isSession ? 'stroke-teal-400' : 'stroke-blue-400';
+        const labelColor = isSession ? 'text-teal-400' : 'text-blue-400';
+
+        return (
+          <div className="relative flex flex-col items-center justify-center my-8 h-[320px] sm:h-[400px]">
+            {/* Background Circle */}
+            <svg className="absolute w-[320px] h-[320px] sm:w-[400px] sm:h-[400px]" viewBox="0 0 320 320">
+              <circle
+                cx="160" cy="160" r="140"
+                strokeWidth="15"
+                fill="none"
+                className="text-white/10 stroke-current"
+              />
+            </svg>
+            {/* Progress Circle */}
+            <svg className="absolute w-[320px] h-[320px] sm:w-[400px] sm:h-[400px] transform -rotate-90" viewBox="0 0 320 320">
+              <circle
+                cx="160" cy="160" r="140"
+                strokeWidth="15"
+                fill="none"
+                strokeDasharray={circumference}
+                strokeDashoffset={strokeDashoffset}
+                strokeLinecap="round"
+                className={`${ringColor} stroke-current transition-all duration-1000 ease-linear`} // Animate strokeDashoffset
+              />
+            </svg>
+            {/* Timer Text */}
+            <div className="relative z-10 flex flex-col items-center justify-center p-8 rounded-full">
+               <h2 id="timer-label" className={`text-2xl font-semibold uppercase tracking-wider mb-4 transition-colors duration-300 ${labelColor}`}>
+                {label}
+              </h2>
+              <div id="time-left" className="text-7xl sm:text-8xl font-light text-white tabular-nums">
+                {formatTime(timeLeft)}
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      // Main App Component
+      function App() {
+        const DEFAULT_SESSION = 25;
+        const DEFAULT_BREAK = 5;
+
+        const [breakLength, setBreakLength] = useState(DEFAULT_BREAK);
+        const [sessionLength, setSessionLength] = useState(DEFAULT_SESSION);
+        const [timeLeft, setTimeLeft] = useState(DEFAULT_SESSION * 60);
+        const [isRunning, setIsRunning] = useState(false);
+        const [isSession, setIsSession] = useState(true); // true for session, false for break
+        const audioRef = useRef(null);
+        const intervalRef = useRef(null);
+        
+        // On mount, get the audio element
+        useEffect(() => {
+            audioRef.current = document.getElementById('beep');
+        }, []);
+
+        // Calculate total duration for progress ring based on current mode
+        // This needs to be accurate for the *current* phase
+        const totalDuration = (isSession ? sessionLength : breakLength) * 60;
+
+        // Format time function (mm:ss)
+        const formatTime = useCallback((time) => {
+          const minutes = Math.floor(time / 60);
+          const seconds = time % 60;
+          return `${minutes < 10 ? '0' : ''}${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+        }, []);
+
+        // Timer logic
+        useEffect(() => {
+          if (isRunning) {
+            intervalRef.current = setInterval(() => {
+              setTimeLeft(prev => {
+                if (prev <= 0) {
+                  audioRef.current?.play().catch(e => console.error("Audio play failed:", e)); // Play sound
+                  
+                  // Switch session type and set new time
+                  setIsSession(currentIsSession => {
+                    const nextIsSession = !currentIsSession;
+                    // Set time for the *new* session
+                    setTimeLeft((nextIsSession ? sessionLength : breakLength) * 60);
+                    return nextIsSession;
+                  });
+                  
+                  // This return is tricky due to state update delay.
+                  // The state update above will schedule a re-render with the new time.
+                  // We return the *new* time here to avoid a 1-second lag display.
+                  return (isSession ? breakLength : sessionLength) * 60; 
+                }
+                return prev - 1;
+              });
+            }, 1000);
+          } else {
+            clearInterval(intervalRef.current);
+          }
+          // Cleanup interval on unmount or when isRunning changes
+          return () => clearInterval(intervalRef.current);
+        }, [isRunning, isSession, breakLength, sessionLength]); // Rerun effect if these change
+
+        // Reset handler
+        const handleReset = useCallback(() => {
+          clearInterval(intervalRef.current); // Stop timer
+          setIsRunning(false);
+          setIsSession(true);
+          setBreakLength(DEFAULT_BREAK);
+          setSessionLength(DEFAULT_SESSION);
+          setTimeLeft(DEFAULT_SESSION * 60);
+          if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+          }
+        }, []);
+
+        // Start/Stop handler
+        const handleStartStop = useCallback(() => {
+          setIsRunning(prev => !prev);
+        }, []);
+
+        // Increment/Decrement handlers with validation
+        const handleLengthChange = useCallback((type, delta) => {
+          if (isRunning) return; // Prevent changes while running
+
+          if (type === 'break') {
+            setBreakLength(prev => {
+              const newLength = prev + delta;
+              if (newLength >= 1 && newLength <= 60) {
+                  // If not running and currently on a break, update time
+                  if (!isSession) {
+                      setTimeLeft(newLength * 60);
+                  }
+                  return newLength;
+              }
+              return prev;
+            });
+          } else if (type === 'session') {
+            setSessionLength(prev => {
+              const newLength = prev + delta;
+               if (newLength >= 1 && newLength <= 60) {
+                  // If not running and currently on a session, update time
+                  if (isSession) {
+                      setTimeLeft(newLength * 60);
+                  }
+                  return newLength;
+               }
+              return prev;
+            });
+          }
+        }, [isRunning, isSession]); // isRunning and isSession needed to conditionally update timeLeft
+
+        return (
+          <div className="flex flex-col items-center justify-center min-h-screen text-slate-100 font-inter p-4">
+            <div className="w-full max-w-lg mx-auto bg-black/20 backdrop-blur-xl rounded-2xl shadow-2xl p-6 sm:p-10 border border-white/10">
+              <h1 className="text-4xl sm:text-5xl font-bold text-center mb-8 text-white drop-shadow-md">
+                Pomodoro Timer
+              </h1>
+
+              {/* Length Controls */}
+              <div className="flex flex-col sm:flex-row justify-center gap-6 mb-8">
+                <LengthControl
+                  type="break"
+                  label="Break Length"
+                  length={breakLength}
+                  increment={() => handleLengthChange('break', 1)}
+                  decrement={() => handleLengthChange('break', -1)}
+                  isRunning={isRunning}
+                />
+                <LengthControl
+                  type="session"
+                  label="Session Length"
+                  length={sessionLength}
+                  increment={() => handleLengthChange('session', 1)}
+                  decrement={() => handleLengthChange('session', -1)}
+                  isRunning={isRunning}
+                />
+              </div>
+
+              {/* Timer Display */}
+              <TimerDisplay
+                label={isSession ? 'Session' : 'Break'}
+                timeLeft={timeLeft}
+                formatTime={formatTime}
+                totalDuration={totalDuration}
+                isSession={isSession}
+              />
+
+              {/* Main Controls */}
+              <div className="flex justify-center items-center space-x-6 mt-6">
+                <ControlButton
+                   id="start_stop"
+                   onClick={handleStartStop}
+                   className="bg-teal-500 hover:bg-teal-400 active:bg-teal-600 w-20 h-20 flex items-center justify-center shadow-lg shadow-teal-500/40 hover:shadow-teal-400/50"
+                   aria-label={isRunning ? 'Pause Timer' : 'Start Timer'}
+                  >
+                  {isRunning ? <PauseIcon /> : <PlayIcon />}
+                </ControlButton>
+                <ControlButton
+                   id="reset"
+                   onClick={handleReset}
+                   className="bg-rose-600 hover:bg-rose-500 active:bg-rose-700 w-20 h-20 flex items-center justify-center shadow-lg shadow-rose-600/40 hover:shadow-rose-500/50"
+                   aria-label="Reset Timer"
+                   >
+                  <ResetIcon />
+                </ControlButton>
+              </div>
+            </div>
+          </div>
+        );
+      }
+      
+      // Mount the React app
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<App />);
+
+    </script>
+</body>
+</html>
