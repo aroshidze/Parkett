@@ -164,7 +164,7 @@
       
       const SettingsIcon = () => (
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+          <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l-.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
           <circle cx="12" cy="12" r="3"/>
         </svg>
       );
@@ -390,7 +390,10 @@
         const [currentMode, setCurrentMode] = useState('session'); // 'session', 'break'
         const [isSettingsOpen, setIsSettingsOpen] = useState(false);
         const [isSoundOn, setIsSoundOn] = useState(true);
-        const [hasNotifPermission, setHasNotifPermission] = useState(Notification.permission === 'granted');
+        // Safely check for Notification API support on initial load
+        const [hasNotifPermission, setHasNotifPermission] = useState(() => 
+          ('Notification' in window) && Notification.permission === 'granted'
+        );
         
         // Load tasks from localStorage on initial render
         const [tasks, setTasks] = useState(() => {
@@ -408,7 +411,7 @@
             audioRef.current = document.getElementById('beep');
         }, []);
         
-        // Check notification permission on mount
+        // Check notification permission on mount (this is a good secondary check)
         useEffect(() => {
           if ('Notification' in window) {
             setHasNotifPermission(Notification.permission === 'granted');
@@ -454,7 +457,8 @@
         
         // Function to show notification
         const showNotification = (title, body) => {
-          if (hasNotifPermission) {
+          // Double-check permission right before sending
+          if (('Notification' in window) && Notification.permission === 'granted') {
             new Notification(title, { body });
           }
         };
@@ -493,7 +497,7 @@
           }
           // Cleanup interval
           return () => clearInterval(intervalRef.current);
-        }, [isRunning, currentMode, breakLength, sessionLength, isSoundOn, hasNotifPermission]);
+        }, [isRunning, currentMode, breakLength, sessionLength, isSoundOn]); // Removed hasNotifPermission, showNotification handles it
 
         // Reset handler
         const handleReset = useCallback(() => {
@@ -518,7 +522,7 @@
             });
           }
           setIsRunning(prev => !prev);
-        }, []);
+        }, []); // No dependencies needed
 
         // Increment/Decrement handlers with validation
         const handleLengthChange = useCallback((type, delta) => {
